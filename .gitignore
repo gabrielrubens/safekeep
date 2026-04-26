@@ -1,0 +1,14 @@
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Local secrets / keys — never commit
+*.key
+*.pem
+.env
+.env.*
+
+# Local test artifacts
+/state/
+/tmp/
