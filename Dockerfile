@@ -22,6 +22,8 @@ USER root
 #   bash       — entrypoint scripts
 #   findutils  — needed for `find -mtime` retention
 #   tzdata     — for human-readable UTC timestamps
+#   msmtp      — sends failure-alert emails (~150KB; opt-in via SMTP_HOST)
+#   curl       — pings Healthchecks.io on success (opt-in via HEALTHCHECK_URL)
 RUN apk add --no-cache \
         rclone \
         age \
@@ -31,6 +33,8 @@ RUN apk add --no-cache \
         findutils \
         tzdata \
         ca-certificates \
+        msmtp \
+        curl \
     && update-ca-certificates
 
 WORKDIR /usr/local/bin

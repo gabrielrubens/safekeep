@@ -4,20 +4,20 @@ What's planned, what's deferred, and the open questions worth re-asking later.
 
 ## Shipped
 
+### v0.1.1 — alerting + standalone repo (2026-04-27)
+- **Layer 1: SMTP email on failure** — opt-in via `SMTP_HOST` + `ALERT_RECIPIENTS`. Sends RFC822 email via `msmtp` with subject `[<APP_NAME>] Backup FAILED — <BACKUP_PREFIX>`, body includes which step failed, DB connection, hostname, retry interval, and last 20 lines of the failed step's stderr
+- **Layer 2: Healthchecks.io ping on success** — opt-in via `HEALTHCHECK_URL`. Pings via `curl` with 5s timeout
+- **EXIT-trap dispatch** — `on_exit` reads `$?` and the most recent `FAILED_STEP`/`FAILED_LOG` to route between success ping and failure email
+- **Per-step stderr capture** (`mktemp` for `pg_dump`/`age`/`rclone`) so failure emails include diagnostic context
+- **Helper failures don't propagate** — email or ping failure logs a warning and continues; the backup itself is the priority
+- **Image additions:** `msmtp` (~150KB), `curl`
+- **Source extracted from Pensio** (`pensio/tools/db-backup-runner/`) into this standalone repo earlier in the session
+
 ### v0.1.0 — initial release (2026-04-26)
 - Postgres → gzip → age → B2 with retention pruning, as a Kamal accessory
 - `restore.sh` for local + remote (B2) restoration
 - `/state/last-success.txt` sentinel for external watchdogs
 - Source originally lived in `pensio/tools/db-backup-runner/`
-
-## In progress
-
-### v0.1.1 — alerting + standalone repo
-- Layer 1: SMTP email on failure (`SMTP_*`, `ALERT_RECIPIENTS`, `APP_NAME`)
-- Layer 2: Healthchecks.io ping on success (`HEALTHCHECK_URL`)
-- Source extracted from Pensio into this standalone repo
-- `msmtp` added to base image
-- Per-step stderr capture so failure emails include diagnostic context
 
 ## Planned
 
