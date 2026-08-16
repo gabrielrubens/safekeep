@@ -152,6 +152,17 @@ on_exit() {
         notify_email "$FAILED_STEP" "$FAILED_LOG"
     fi
     rm -f "$DUMP_ERR" "$ENCRYPT_ERR" "$UPLOAD_ERR"
+
+    # Always drop the encrypted artifact, including when we died before the
+    # normal cleanup below. Previously that rm only ran on the success path, so
+    # any run that failed between `age` and `rclone copy` left a .age file
+    # behind FOREVER — the local prune could not see it (see the pattern note
+    # further down). Six such files, from 2026-04-26, were still on Pensio's two
+    # backup volumes when this was found on 2026-08-11.
+    #
+    # The plain .sql.gz is deliberately NOT removed here: it is the local copy
+    # that LOCAL_RETENTION_DAYS exists to keep.
+    rm -f "$ENCRYPTED_FILE"
 }
 trap on_exit EXIT
 
@@ -215,8 +226,14 @@ if [ -n "$ENCRYPTED_FILE" ]; then
 fi
 
 # Post-upload housekeeping (warnings only — we already have the upload)
+# The glob ends in `.sql.gz*`, not `.sql.gz`, and the trailing star is the whole
+# point: `-name` matches the entire basename, so the old pattern could never
+# match `<prefix>-<stamp>.sql.gz.age`. Combined with the encrypted artifact only
+# being removed on the success path, that made orphaned .age files immortal —
+# they were invisible to every prune and grew without bound, one per failed run.
+# The EXIT trap now prevents new ones; this sweeps up any that already exist.
 log "Pruning local dumps older than ${LOCAL_RETENTION_DAYS} days"
-find "$LOCAL_DIR" -name "${BACKUP_PREFIX}-*.sql.gz" -mtime +"${LOCAL_RETENTION_DAYS}" -delete
+find "$LOCAL_DIR" -name "${BACKUP_PREFIX}-*.sql.gz*" -mtime +"${LOCAL_RETENTION_DAYS}" -delete
 
 log "Pruning remote dumps older than ${REMOTE_RETENTION_DAYS} days"
 rclone delete --min-age "${REMOTE_RETENTION_DAYS}d" "$B2_DEST" --quiet \
