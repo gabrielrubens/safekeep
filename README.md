@@ -2,8 +2,8 @@
 
 Off-site, encrypted Postgres backups in a single container. Drop it next to your database as a Kamal accessory, set a handful of env vars, and your data is dumped, encrypted client-side with [age](https://age-encryption.org), and uploaded to Backblaze B2 on a schedule. One image works for any app, framework, or language.
 
-**Image:** `ghcr.io/gabrielrubens/safekeep:v0.1.1` (public on GHCR)
-**Status:** v0.1.0 in production at Pensio since 2026-04-26. v0.1.1 is the first release under the standalone repo and adds opt-in alerting (SMTP + Healthchecks.io).
+**Image:** `ghcr.io/gabrielrubens/safekeep:v0.1.3` (public on GHCR)
+**Status:** In production at Pensio since 2026-04-26. v0.1.1 added opt-in alerting (SMTP + Healthchecks.io), v0.1.2 fixed the orphaned-`.age` leak, v0.1.3 makes a failed run signal Healthchecks.io immediately.
 
 ## Why SafeKeep
 
@@ -11,7 +11,7 @@ Off-site, encrypted Postgres backups in a single container. Drop it next to your
 - **Encrypted client-side.** Only the public `age` recipient lives in the container. The secret key never goes near the VPS — a B2 credential leak never exposes plaintext.
 - **One image, many apps.** Each adopting app injects its own `PG_HOST`, `BACKUP_PREFIX`, and secrets. Cuts maintenance to one source tree.
 - **Self-restorable.** A single `kamal accessory exec` rebuilds the database from the latest dump, local or remote.
-- **Opt-in alerting.** SMTP email on failure, Healthchecks.io ping on success. Both gated on env vars — set what you want, leave the rest blank.
+- **Opt-in alerting.** SMTP email on failure, Healthchecks.io ping on success *and* on failure. Both gated on env vars — set what you want, leave the rest blank.
 
 ## Architecture
 
@@ -31,7 +31,7 @@ Off-site, encrypted Postgres backups in a single container. Drop it next to your
 │    3. rclone copy → b2:<bucket>/<prefix> │
 │    4. prune local + remote (retention)   │
 │    5. write /state/last-success.txt      │
-│    6. (v0.1.1) email or HC.io ping       │
+│    6. HC.io ping (ok/fail) + fail email  │
 │    7. sleep BACKUP_INTERVAL              │
 └──────────────────────────────────────────┘
                 │
@@ -50,7 +50,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design rationale and decisio
 # config/deploy.{production,staging}.yml
 accessories:
   backup:
-    image: ghcr.io/gabrielrubens/safekeep:v0.1.1
+    image: ghcr.io/gabrielrubens/safekeep:v0.1.3
     host: <your-vps-ip>
     cmd: /usr/local/bin/entrypoint.sh loop
     env:
@@ -141,7 +141,7 @@ Set these to enable each layer. Anything left unset is silently skipped.
 | `SMTP_FROM` | " | From address |
 | `ALERT_RECIPIENTS` | " | Comma-separated To addresses |
 | `APP_NAME` | " | Used in subject line; defaults to first segment of `BACKUP_PREFIX` |
-| `HEALTHCHECK_URL` | Healthchecks.io ping on success | Full ping URL from healthchecks.io |
+| `HEALTHCHECK_URL` | Healthchecks.io ping | Full ping URL from healthchecks.io. Pinged on success; since v0.1.3 a failed run also pings `<url>/fail`, so the check goes red immediately instead of at the end of its grace window. |
 
 ## Generating an age keypair (one-time)
 

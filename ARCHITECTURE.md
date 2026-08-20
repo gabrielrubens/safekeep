@@ -32,19 +32,32 @@ Three independent paths, each gated on its own env var. Mix and match.
 | Layer | Trigger | Env gate | What it catches |
 |---|---|---|---|
 | **1 — SMTP email on failure** | `STATUS=failed` | `SMTP_HOST` | `pg_dump` errors, `rclone` errors, encryption errors |
-| **2 — Healthchecks.io ping on success** | `STATUS=success` | `HEALTHCHECK_URL` | Runner crashed / OOM / never reached the email code path |
+| **2 — Healthchecks.io ping** | success → `<url>`, failure → `<url>/fail` (v0.1.3+) | `HEALTHCHECK_URL` | Everything layer 1 catches, plus runner crashed / OOM / host down / never reached the email code path |
 | **3 — `/state/last-success.txt` sentinel** | Always (built-in) | none | External watchdog can `cat` it for last-OK timestamp |
 
 ### Why two layers, not one
 
 | Failure scenario | Layer 1 (SMTP) | Layer 2 (HC.io) |
 |---|---|---|
-| `pg_dump` fails | ✅ Email arrives | ❌ no ping |
-| `rclone upload` fails (B2 down) | ✅ Email arrives | ❌ no ping |
-| Runner container OOM-killed | ❌ no email | ✅ HC.io alerts after grace |
-| SMTP itself broken | ❌ no email | ✅ HC.io still pings on success |
+| `pg_dump` fails | ✅ Email arrives | ✅ `/fail` ping, red immediately |
+| `rclone upload` fails (B2 down) | ✅ Email arrives | ✅ `/fail` ping, red immediately |
+| Runner container OOM-killed | ❌ no email | ✅ red after grace window |
+| Host down / accessory never booted | ❌ no email | ✅ red after grace window |
+| SMTP itself broken | ❌ no email | ✅ `/fail` ping still lands |
 
-Layered = each path catches what the other misses.
+Layer 2 is the one to configure if you only configure one. It is the sole path
+that can report the failures which stop the runner from reporting anything at
+all, and since v0.1.3 it no longer trades that coverage for latency — a failed
+run turns the check red at once instead of waiting out the grace window.
+
+Layer 1 keeps earning its place by carrying detail the ping cannot: which step
+died, and the last 20 lines of its stderr. Diagnosis, where layer 2 is
+detection.
+
+**Why not have the runner decide whether an alert is worth sending?** Because
+it is the wrong process to ask. A runner that has been OOM-killed cannot judge
+its own health, which is the entire argument for a dead-man's switch living
+somewhere else.
 
 ## What's intentionally NOT in SafeKeep
 

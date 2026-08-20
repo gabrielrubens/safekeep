@@ -4,6 +4,18 @@ What's planned, what's deferred, and the open questions worth re-asking later.
 
 ## Shipped
 
+### v0.1.3 — failed runs signal Healthchecks.io immediately (2026-08-19)
+- **`<HEALTHCHECK_URL>/fail` ping on failure** — a dead run turned the check red only when its grace window expired, up to a full `BACKUP_INTERVAL` late. It now signals at once
+- **Fires on ANY non-zero exit**, not only runs that got far enough to set `FAILED_STEP`. A run dying before the first step previously left no trace on either layer
+- **Ping ordered before the failure email** — it is the path that does not depend on SMTP, which is exactly the failure an email alert cannot report on itself
+- **Trailing slashes stripped** so a URL pasted with one does not request `//fail`
+- Known cost: stopping the container mid-run reads as a failure and turns the check red. Rare, self-clearing on the next success, and silence is the worse way to be wrong
+
+### v0.1.2 — orphaned `.age` files were immortal (2026-08-18)
+- **Encrypted artifact now removed on every exit path**, not just success. Any run dying between `age` and `rclone copy` used to leave a `.age` file behind permanently
+- **The local prune could never see them** — it globbed `${BACKUP_PREFIX}-*.sql.gz`, which `find -name` cannot match against `<prefix>-<stamp>.sql.gz.age`
+- Either bug alone was harmless; together they leaked one file per failed run, forever, on a volume whose entire purpose is bounded retention. Six were found on Pensio's volumes dating to 2026-04-26
+
 ### v0.1.1 — alerting + standalone repo (2026-04-27)
 - **Layer 1: SMTP email on failure** — opt-in via `SMTP_HOST` + `ALERT_RECIPIENTS`. Sends RFC822 email via `msmtp` with subject `[<APP_NAME>] Backup FAILED — <BACKUP_PREFIX>`, body includes which step failed, DB connection, hostname, retry interval, and last 20 lines of the failed step's stderr
 - **Layer 2: Healthchecks.io ping on success** — opt-in via `HEALTHCHECK_URL`. Pings via `curl` with 5s timeout
@@ -46,6 +58,25 @@ Periodic spot-check that uploaded `.age` files in B2 still exist and decrypt cle
 **Why deferred:** Healthchecks.io's dashboard already covers "is everything green across all my apps" for free. The status JSON would add per-run sizes and durations, which are nice-to-have but not load-bearing. Revisit if you find yourself wanting to answer "is backup file size trending up unexpectedly?" without logging into B2.
 
 If/when picked up: probably an opt-in `STATUS_JSON_URL` (or `STATUS_JSON_PREFIX`) env var so it stays fully optional.
+
+### Self-hosted ping endpoint instead of hosted Healthchecks.io
+**The idea:** `HEALTHCHECK_URL` is just a URL, so it already works against a
+self-hosted dead-man's switch today — an Uptime Kuma push monitor, a Gatus
+endpoint, a self-hosted Healthchecks instance. No SafeKeep change needed. The
+question is whether the VPS apps *should* point there.
+
+**Why not yet (2026-08-19):** the alert path should not share a failure domain
+with anything it watches, and it should not depend on infrastructure that can
+be down for unrelated reasons. Homelab down means silent VPS backups with no
+signal — the exact failure this layer exists to catch. It would also put
+production alerting on the tailnet, adding a dependency between two systems
+that are currently independent.
+
+**Worth re-asking when:** the homelab monitoring stack has its own external
+watchdog (something outside the house confirming Kuma itself is alive), at
+which point self-hosting stops being a single point of silence. Also worth
+re-asking if the hosted free tier ever stops fitting — 3 apps × 1 production
+check each is nowhere near it today.
 
 ### Sentry breadcrumb on failure
 Was in the original v0.1.1 plan. Dropped because it duplicates Layer 1 (SMTP), couples to Sentry config, and Sentry's "cron monitor" feature solves a different problem. Adopters who want it can wire `curl` to Sentry's webhook themselves via a custom `ALERT_WEBHOOK_URL` (which doesn't exist yet — would be its own small feature).

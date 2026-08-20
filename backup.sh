@@ -133,10 +133,16 @@ MSMTPCFG
     log "Failure alert sent to: ${ALERT_RECIPIENTS}"
 }
 
+# No argument pings the success endpoint. `fail` appends Healthchecks.io's
+# /fail path, which turns the check red the moment a run dies instead of when
+# the grace window eventually runs out. Trailing slashes are stripped so a URL
+# copied with one does not produce `//fail`.
 ping_healthcheck() {
     [ -z "$HEALTHCHECK_URL" ] && return 0
-    if curl --max-time 5 -fsS "$HEALTHCHECK_URL" >/dev/null 2>&1; then
-        log "Healthcheck pinged: ${HEALTHCHECK_URL}"
+    local url="$HEALTHCHECK_URL"
+    [ "${1:-}" = "fail" ] && url="${HEALTHCHECK_URL%/}/fail"
+    if curl --max-time 5 -fsS "$url" >/dev/null 2>&1; then
+        log "Healthcheck pinged: ${url}"
     else
         log "WARN: healthcheck ping failed (continuing)"
     fi
@@ -147,9 +153,23 @@ on_exit() {
     local exit_code=$?
     if [ "$exit_code" -eq 0 ]; then
         ping_healthcheck
-    elif [ -n "$FAILED_STEP" ]; then
-        log "ERROR: backup failed at step '${FAILED_STEP}' (exit ${exit_code})"
-        notify_email "$FAILED_STEP" "$FAILED_LOG"
+    else
+        # Ping BEFORE the email, and on ANY non-zero exit rather than only the
+        # ones that got far enough to set FAILED_STEP. This is the alert path
+        # that does not depend on SMTP being reachable — and "SMTP is the thing
+        # that broke" is precisely the case an email alert cannot report on
+        # itself. A run that dies before the first step used to leave no trace
+        # at all until the grace window expired a day later.
+        #
+        # Cost: stopping the container mid-run (a `kamal accessory reboot`
+        # during the backup window) reads as a failure and turns the check red.
+        # Rare, self-clearing on the next success, and the wrong direction to
+        # err in would be silence.
+        ping_healthcheck fail
+        if [ -n "$FAILED_STEP" ]; then
+            log "ERROR: backup failed at step '${FAILED_STEP}' (exit ${exit_code})"
+            notify_email "$FAILED_STEP" "$FAILED_LOG"
+        fi
     fi
     rm -f "$DUMP_ERR" "$ENCRYPT_ERR" "$UPLOAD_ERR"
 
