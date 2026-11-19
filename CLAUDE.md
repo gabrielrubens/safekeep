@@ -92,7 +92,7 @@ Push freely to `main`. The image only publishes on a `vX.Y.Z` tag, so a doc-only
 For releases: tag → push tag → GHA does the rest.
 
 ## Adopters
-Adopters: Pensio (the reference) and GotHired (`~/dev/gothired/config/deploy.production.yml`). Pensio's wiring lives in:
+Adopters: Pensio (the reference), GotHired (`~/dev/gothired/config/deploy.production.yml`) and Gravity (`~/dev/gravity/config/deploy.yml`). Check `origin`, not a local checkout: a checkout on an old branch can miss its accessory block. Pensio's wiring lives in:
 - `~/dev/pensio/config/deploy.yml` (shared accessory block)
 - `~/dev/pensio/config/deploy.{staging,production}.yml` (per-env overrides)
 - `~/dev/pensio/docs/admin/backup-system.md` (Pensio-side wiring + restore runbook)
@@ -107,4 +107,4 @@ The Blueprint adoption recipe lives at `~/dev/blueprint/04-deploy/backups.md` �
 - **No `:latest` tag** without an explicit decision. Adopters pin
 - **Helper failures must not propagate.** Email/webhook/healthcheck failures inside `backup.sh` log a warning and continue — the backup itself is the priority
 - **Document new env vars in the README env table on the same commit they're introduced**
-- **Verify every adopter's wiring still works** (Pensio's `config/deploy*.yml`, GotHired's `config/deploy.production.yml`) before any change that touches env-var names or the entrypoint contract
+- **Verify every adopter's wiring still works** (Pensio's `config/deploy*.yml`, GotHired's `config/deploy.production.yml`, Gravity's `config/deploy.yml`) before any change that touches env-var names or the entrypoint contract
