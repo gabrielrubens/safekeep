@@ -3,7 +3,7 @@
 Off-site, encrypted Postgres backups in a single container. Drop it next to your database as a Kamal accessory, set a handful of env vars, and your data is dumped, encrypted client-side with [age](https://age-encryption.org), and uploaded to Backblaze B2 on a schedule. One image works for any app, framework, or language.
 
 **Image:** `ghcr.io/gabrielrubens/safekeep:v0.1.3` (public on GHCR)
-**Status:** In production at Pensio since 2026-04-26. v0.1.1 added opt-in alerting (SMTP + Healthchecks.io), v0.1.2 fixed the orphaned-`.age` leak, v0.1.3 makes a failed run signal Healthchecks.io immediately.
+**Status:** In production at Pensio (since 2026-04-26) and GotHired (since 2026-08-11). v0.1.1 added opt-in alerting (SMTP + Healthchecks.io), v0.1.2 fixed the orphaned-`.age` leak, v0.1.3 makes a failed run signal Healthchecks.io immediately.
 
 ## Why SafeKeep
 

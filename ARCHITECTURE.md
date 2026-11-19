@@ -17,7 +17,7 @@ This is the design rationale and decision record for SafeKeep. The [README](READ
 |---|---|
 | **Kamal accessory, not host cron** | Survives `/opt/<app>/` renames, `git pull`, host re-provisioning. Inherits Kamal logging + restart policy. Same model as `postgres` and `redis`. |
 | **One image, many apps** | Cuts maintenance to one source tree. Each app injects its own `PG_HOST`, `BACKUP_PREFIX`, secrets. |
-| **One bucket, one keypair (recommended)** | Object Lock + SSE-B2 are bucket-level. One bucket is one ops surface. Per-app prefixes (`pensio-prod/`, `gravity-prod/`, …) keep things tidy without multiplying credentials. One age keypair means one secret to safeguard. |
+| **One bucket, one keypair (recommended)** | Object Lock + SSE-B2 are bucket-level. One bucket is one ops surface. Per-app prefixes (`pensio-prod/`, `gothired-prod/`, …) keep things tidy without multiplying credentials. One age keypair means one secret to safeguard. |
 | **age, not GPG** | Modern, single binary, single recipient string, no keyring. The secret key is one short file. |
 | **rclone, not the B2 CLI** | Single binary handles auth + path-based copy + filtered listing. Same tool we'd use for other clouds in v0.4.0 (R2 cross-cloud). |
 | **Postgres N-alpine base image** | Guarantees `pg_dump` matches the server major version. Bumping Postgres = bumping this image. |
@@ -96,7 +96,7 @@ People sometimes flinch at "plaintext on the VPS." The reasoning:
 
 ## Naming conventions
 
-- `BACKUP_PREFIX`: `<app>-<env>` (e.g. `pensio-prod`, `gravity-staging`). Used as both the B2 path segment AND the dump filename prefix, so it shows up in two places. Keep it short — it ends up in URLs.
+- `BACKUP_PREFIX`: `<app>-<env>` (e.g. `pensio-prod`, `gothired-prod`). Used as both the B2 path segment AND the dump filename prefix, so it shows up in two places. Keep it short — it ends up in URLs.
 - B2 layout: `b2:<bucket>/<prefix>/<prefix>-<UTC-timestamp>.sql.gz.age`
 - One bucket can host many apps; the prefix keeps them separate.
 

@@ -75,8 +75,8 @@ that are currently independent.
 **Worth re-asking when:** the homelab monitoring stack has its own external
 watchdog (something outside the house confirming Kuma itself is alive), at
 which point self-hosting stops being a single point of silence. Also worth
-re-asking if the hosted free tier ever stops fitting — 3 apps × 1 production
-check each is nowhere near it today.
+re-asking if the hosted free tier ever stops fitting — the
+checks in use today are well inside it (see the Healthchecks dashboard).
 
 ### Sentry breadcrumb on failure
 Was in the original v0.1.1 plan. Dropped because it duplicates Layer 1 (SMTP), couples to Sentry config, and Sentry's "cron monitor" feature solves a different problem. Adopters who want it can wire `curl` to Sentry's webhook themselves via a custom `ALERT_WEBHOOK_URL` (which doesn't exist yet — would be its own small feature).

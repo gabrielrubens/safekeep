@@ -3,7 +3,7 @@
 ## About
 SafeKeep is a single-container Postgres backup runner: `pg_dump` → age encryption → Backblaze B2 upload, on a schedule. Deployed as a Kamal accessory by adopting apps. Framework-agnostic — same image works for any app.
 
-This project is intentionally **small and slow-moving**. The whole codebase is ~5 bash scripts + a Dockerfile. Resist scope creep.
+This project is intentionally **small and slow-moving**. The whole codebase is a handful of bash scripts + a Dockerfile. Resist scope creep.
 
 ## Project layout
 ```
@@ -40,7 +40,7 @@ SemVer (`vX.Y.Z`):
 |---|---|
 | **PATCH** (v0.1.X) | Bug fix, doc-only change, internal refactor — no env var changes, no behavior change for adopters |
 | **MINOR** (v0.X.0) | New feature, new optional env var, new alerting layer — must stay backward-compatible with existing adopters' env contracts |
-| **MAJOR** (vX.0.0) | Breaking change to env vars, removed feature, base image major bump that requires adopter action — coordinate with Pensio + any other adopters first |
+| **MAJOR** (vX.0.0) | Breaking change to env vars, removed feature, base image major bump that requires adopter action — coordinate with every adopter (see Adopters) first |
 
 **Release flow:**
 1. Make changes on `main` (this is a small repo, no branch dance needed)
@@ -69,7 +69,7 @@ shellcheck entrypoint.sh backup.sh backup-loop.sh restore.sh
 docker build --platform linux/amd64 -t safekeep:test .
 ```
 
-For changes that touch the backup loop, encryption, or upload paths — also run an end-to-end smoke test against a throwaway Postgres + B2 bucket. The full process is in `ARCHITECTURE.md` under "Testing locally" (add that section if you ever need it).
+For changes that touch the backup loop, encryption, or upload paths — also run an end-to-end smoke test against a throwaway Postgres + B2 bucket. Then restore that dump with `restore.sh` to prove the round trip.
 
 ## Commit format
 - `feat: <description>` — new behavior visible to adopters
@@ -92,7 +92,7 @@ Push freely to `main`. The image only publishes on a `vX.Y.Z` tag, so a doc-only
 For releases: tag → push tag → GHA does the rest.
 
 ## Adopters
-Pensio is the reference adopter today. Their wiring lives in:
+Adopters: Pensio (the reference) and GotHired (`~/dev/gothired/config/deploy.production.yml`). Pensio's wiring lives in:
 - `~/dev/pensio/config/deploy.yml` (shared accessory block)
 - `~/dev/pensio/config/deploy.{staging,production}.yml` (per-env overrides)
 - `~/dev/pensio/docs/admin/backup-system.md` (Pensio-side wiring + restore runbook)
@@ -107,4 +107,4 @@ The Blueprint adoption recipe lives at `~/dev/blueprint/04-deploy/backups.md` �
 - **No `:latest` tag** without an explicit decision. Adopters pin
 - **Helper failures must not propagate.** Email/webhook/healthcheck failures inside `backup.sh` log a warning and continue — the backup itself is the priority
 - **Document new env vars in the README env table on the same commit they're introduced**
-- **Verify Pensio's wiring still works** (read `~/dev/pensio/config/deploy.yml` and the staging/production overrides) before any change that touches env-var names or the entrypoint contract
+- **Verify every adopter's wiring still works** (Pensio's `config/deploy*.yml`, GotHired's `config/deploy.production.yml`) before any change that touches env-var names or the entrypoint contract
